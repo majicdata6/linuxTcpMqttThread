@@ -1,0 +1,11 @@
+dev_type,dev_name,dev_id,dev_cmd_read,dev_cmd_write,stop
+4channelCtrl,4chCtrl_0,aabbccdd,YES,YES,
+4channelCtrl,,abcdabcd,YES,YES,
+4channelCtrl,4chCtrl_3,1122aabb,YES,YES,
+3ledCtrl,3ledCtrl_0,11223345,YES,YES,
+curtainCtrl,curtainCtrl_0,11223346,YES,YES,
+tempCtrl,tempCtrl_0,11223347,YES,YES,
+bodySensor,bodySensor_0,11223348,YES,NO,
+humTempSensor,humTempSensor_0,11223349,YES,NO,
+curtainSensor,curtainSensor_0,11223350,YES,NO,
+keySwitch,keySwitch_0,11223351,YES,NO,
