@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "readConfigCsv.h"
+#include "dev4chCtrl.h"
 
 
 

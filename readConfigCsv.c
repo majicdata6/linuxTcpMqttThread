@@ -384,8 +384,8 @@ uint8_t get4lCtrlConfig(char *profile, tDev_4channelCtl_Typedef *ptDevBuf, int g
 						column = 0;
 					}
 					break;
-					
 				}
+
 			}
  
 		}

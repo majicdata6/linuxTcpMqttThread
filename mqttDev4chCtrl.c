@@ -243,7 +243,7 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 //返回编码数据字节长度 非0正常，返回0失败
 int encode4chMqttPubData(uint8_t *pWriteBuf, int devNode, uint8_t cmd)
 {
-	tDev_4channelCtl_Typedef *ptDev4chNode = &tDevTypeNodeTotal.ptDev4ChCtl;
+	tDev_4channelCtl_Typedef *ptDev4chNode = tDevTypeNodeTotal.ptDev4ChCtl;
 	int dataLen = 0;
 	if (devNode < 1)
 	{

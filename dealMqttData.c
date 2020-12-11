@@ -56,7 +56,7 @@ static int getIntDevNodeFromMqttTopic(char *pTopic)
 	//继续读取行 里剩下的列字符串 直到获取到设备节点号1~n
 	for (uint8_t i = 1; (i < MQTT_DEV_NODE_NUM_OFFSET)&& (pName != NULL); i++)
 	{
-		pName = strtok(pTopicStr, NULL);
+		pName = strtok(NULL, delims);
 	}
 
 	//获取 失败
@@ -94,7 +94,7 @@ static char *getStrDevNameFromMqttTopic(char *pTopic)
 	//继续读取行 里剩下的列字符串 直到获取到设备节点号1~n
 	for (uint8_t i = 1; (i < MQTT_DEV_NODE_NAME_OFFSET) && (pName != NULL); i++)
 	{
-		pName = strtok(pTopicStr, NULL);
+		pName = strtok(NULL, delims);
 	}
 
 	//设备名字符串转 无效 为NULL
@@ -124,7 +124,7 @@ static char *getStrDevOptFromMqttTopic(char *pTopic)
 	//继续读取行 里剩下的列字符串 直到获取到设备节点号1~n
 	for (uint8_t i = 1; (i < MQTT_DEV_NODE_OPERATE_OFFSET) && (pOperate != NULL); i++)
 	{
-		pOperate = strtok(pTopicStr, NULL);
+		pOperate = strtok(NULL, delims);
 	}
 
 	//设备名字符串转 无效 为NULL
