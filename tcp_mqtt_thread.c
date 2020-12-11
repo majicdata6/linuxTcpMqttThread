@@ -222,6 +222,10 @@ int msgarrvd_4ch(void *context, char *topicName, int topicLen, MQTTClient_messag
 	int i;
 	char* payloadptr;
 
+	printf("topic=%s\n", topicName);
+	printf("message=%s\n", message->payload);
+
+#if 1
 	//数据解析、存放
 	if (0 == decodeMqttSub4ch(topicName, message->payload, message->payloadlen))
 	{
@@ -233,6 +237,9 @@ int msgarrvd_4ch(void *context, char *topicName, int topicLen, MQTTClient_messag
 
 	//根据下发需求 发送tcp-4ch发送信号量
 	sem_post(&semTcp4chSend);
+#endif // 0
+
+	
 
 #if 0
 	//
@@ -748,16 +755,48 @@ void *tcpClient_r(void *tTcpInfo)
 			}
 
 			pInfo->readLen = rec_len;
+#if 0
+
+			for (int i = 0; i < rec_len; i++)
+			{
+				printf("%02X ", pInfo->rbuf[i]);
+			}
+			printf("\n ");
+#endif // 0
+#if 1
+
+
 
 			//tcp数据接收解析
 			dealType = decodeTcpData(pInfo->rbuf, pInfo->readLen);
+
+#ifdef DEBUG_EN
+			printf("dealTypeBack= %2X \n", dealType);
+#endif // DEBUG_EN
+
 			switch (dealType)
 			{
 			case AGREEMENT_CMD_MID_MASTER_4CH:
 			{
+#if 1
+#ifdef DEBUG_EN
+				for (int i = 0; i < rec_len; i++)
+				{
+					printf("%02X ", pInfo->rbuf[i]);
+				}
+				printf("\n ");
+#endif // DEBUG_EN
+
+				
+#endif // 0
+
+#if 1
 				dealType = 0;
 				//发送信号
 				sem_post(&semMqtt4chPub);
+#endif // 0
+
+				
 			}
 			break;
 			case AGREEMENT_CMD_MID_MASTER_TEMP:
@@ -783,15 +822,14 @@ void *tcpClient_r(void *tTcpInfo)
 			break;
 
 			default:
-				dealType = 0;
 				break;
 			}
 			
 
 #ifdef DEBUG_EN
-			printf("%s\n", pInfo->rbuf);
+			//printf("%s\n", pInfo->rbuf);
 #endif // DEBUG_EN
-	
+#endif // 0
 		}
 
 		close(socket_fd);

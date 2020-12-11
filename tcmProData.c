@@ -1,11 +1,12 @@
 
 #include "tcmProData.h"
 
+#define DEBUG_EN
 
 //获取设备ID 成功返回1 失败返回0
 uint8_t getDevId(uint8_t *pTcpData, uint8_t tcpDataLen, uint8_t *pStorDevId)
 {
-	uint8_t *pDevIdEnd = pTcpData;
+	uint8_t *pDevIdAddr = pTcpData;
 
 	tDevData_Typedef *pData = (tDevData_Typedef *)pTcpData;
 	uint8_t datLen = pData->dataLenL;
@@ -15,19 +16,23 @@ uint8_t getDevId(uint8_t *pTcpData, uint8_t tcpDataLen, uint8_t *pStorDevId)
 	if (tcpDataLen != dataByteTotal)
 	{
 #ifdef DEBUG_EN
-		printf("数据长度错误-接收长度=%d -计算数据长度=%d\n", tcpDataLen, dataByteTotal);
+		printf("dataLenErr_dataReadLen=%d - dataTotalLen=%d\n", tcpDataLen, dataByteTotal);
 #endif
 		return 0;
 	}
 
 	//计算设备id末尾指针
-	pDevIdEnd = pDevIdEnd + AGREEMENT_CMD_HEAD_LEN + datLen + optDatLen;
+	pDevIdAddr = (pDevIdAddr + (dataByteTotal - optDatLen - TCM_ID_LEN - 2));//2= status+crc8d
 
 	//获取设备ID
 	for (uint8_t i = 0; i < TCM_ID_LEN; i++)
 	{
-		pStorDevId[3 - i] = *(pDevIdEnd - i);
+		pStorDevId[i] = *(pDevIdAddr + i);
 	}
+
+#ifdef DEBUG_EN
+	printf("storDevId= %02X %02X %02X %02X\n", pStorDevId[0], pStorDevId[1],pStorDevId[2],pStorDevId[3]);
+#endif
 
 	return 1;
 }

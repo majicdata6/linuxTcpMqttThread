@@ -108,6 +108,7 @@ static int setPub4chCtrlData_chStatus(uint8_t *pWriteBuf, uint8_t ch, uint8_t ch
 
 
 
+#if 0
 
 //pDataStr			json字符串数据指针
 //storDevNodeNum	解析数据存放地址节点1~n
@@ -173,8 +174,16 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 			cJSON *json_ch3 = cJSON_GetObjectItemCaseSensitive(json_dataValue, MQTT_DEV_CH3_NAME);
 			cJSON *json_ch4 = cJSON_GetObjectItemCaseSensitive(json_dataValue, MQTT_DEV_CH4_NAME);
 
-			//设置操作通道 和 通道值
+#ifdef DEBUG_EN
+			printf("ch1Status = %s\n", json_ch1->valuestring);
+			printf("ch2Status = %s\n", json_ch2->valuestring);
+			printf("ch3Status = %s\n", json_ch3->valuestring);
+			printf("ch4Status = %s\n", json_ch4->valuestring);
 
+#endif // DEBUG_EN
+
+
+			//设置操作通道 和 通道值
 			uint8_t ch = 0;
 			uint8_t chStatus = 0;
 			if (json_ch1 != NULL)
@@ -234,6 +243,53 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 	//指令-获取
 
 	return 1;
+}
+#endif // 0
+
+//pDataStr			json字符串数据指针
+//storDevNodeNum	解析数据存放地址节点1~n
+//返回获取结果 成功1 失败0
+uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
+{
+	//数数据检测
+	if ((storDevNodeNum < 1) || (storDevNodeNum > tDevTypeNodeTotal.dev4chCtrlTotal) || (pDevName == NULL))
+	{
+		//输入信息错误 返回
+		return 0;
+	}
+
+	tDev_4channelCtl_Typedef *ptDevNode = (tDevTypeNodeTotal.ptDev4ChCtl + storDevNodeNum - 1);
+	if (strcmp(ptDevNode->devName, pDevName) != 0)
+	{
+		//设备名不匹配
+		return 0;
+	}
+
+	//json数据解析
+	cJSON *json_r = cJSON_Parse(pDataStr);
+	if (json_r == NULL)
+	{
+		//失败返回
+		return 0;
+	}
+
+	//获取 设备指令
+	cJSON *json_devCmd = cJSON_GetObjectItemCaseSensitive(json_r, MQTT_DEV_CMD_NAME);
+	if (cJSON_IsString(json_devCmd) && (json_devCmd->valuestring != NULL))
+	{
+#ifdef DEBUG_EN
+		printf("devCmd=%s\n", json_devCmd->valuestring);
+#endif // DEBUG_EN
+
+	}
+	else
+	{
+		//失败返回
+		return 0;
+	}
+
+
+	return 0;
 }
 
 //编码网络数据包

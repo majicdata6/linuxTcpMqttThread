@@ -4,6 +4,7 @@
 
 
 #include <stdint.h>
+
 #include "tcmProData.h"
 #include "readConfigCsv.h"
 
@@ -16,8 +17,10 @@
 //外部使用函数声明
 
 //成功返回 1 失败返回0
-//pStorData 指向通道状态存储区，格式ch1=0/1,ch2=0/1,ch3=0/1,ch4=0/1  0-关 1-开
-uint8_t get4chCtrlData_chStatus(uint8_t *pTcpData, uint8_t *pStorData);
+//pTcpData		tcp原数据
+//pStorCh		操作的通道 低4位 高有效， 
+//pStorData		通道状态 低4位 通道4~通道1 对应bit3~0 ，1=开，0=关
+uint8_t get4chCtrlData_chStatus(uint8_t *pTcpData, uint8_t *pStorCh, uint8_t *pStorData);
 
 
 //pStorData 指向存储区，确保缓存大小足够

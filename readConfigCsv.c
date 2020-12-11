@@ -500,15 +500,29 @@ int getDev4ChCtlNode(uint8_t *pDevId)
 	{
 		pDevIdBuf = (ptDevCtrl + node)->devId;
 
-		for(uint8_t i=0; i<DEV_ID_LEN; i++)
-		{
-			if(*(pDevIdBuf + i) != *(pDevId + i))
-			{
-				continue;
-			}
+#ifdef DEBUG_EN
+		printf("devNode= %d,storDevId= %02X %02X %02X %02X \n", node, *(pDevIdBuf + 0), *(pDevIdBuf + 1), *(pDevIdBuf + 2), *(pDevIdBuf + 3));
+#endif // DEBUG_EN
 
-			return (node+1);
+		if(*(pDevIdBuf + 0) != *(pDevId + 0))
+		{
+			continue;
 		}
+
+		if (*(pDevIdBuf + 1) != *(pDevId + 1))
+		{
+			continue;
+		}
+		if (*(pDevIdBuf + 2) != *(pDevId + 2))
+		{
+			continue;
+		}
+		if (*(pDevIdBuf + 3) != *(pDevId + 3))
+		{
+			continue;
+		}
+
+		return (node + 1);	
 	}
 	return 0;
 }

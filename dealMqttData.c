@@ -9,9 +9,9 @@
 
 //OFFSET:	0	/1	/...
 //INFO:		建筑/楼层/网关/设备类/+（名字）/+（节点号）/+（操作指令（read、write））
-#define MQTT_DEV_NODE_NAME_OFFSET			4
-#define MQTT_DEV_NODE_NUM_OFFSET			5
-#define MQTT_DEV_NODE_OPERATE_OFFSET		6
+#define MQTT_DEV_NODE_NAME_OFFSET			5
+#define MQTT_DEV_NODE_NUM_OFFSET			6
+#define MQTT_DEV_NODE_OPERATE_OFFSET		7
 
 #define MAX_MQTT_TOPIC_LEN					256
 #define MAX_MQTT_DATA_LEN					512
@@ -51,6 +51,11 @@ static int getIntDevNodeFromMqttTopic(char *pTopic)
 	//
 	strcpy(topicBuf, pTopic);
 
+#ifdef DEBUG_EN
+	printf("topicBuf = %s\n", topicBuf);
+#endif // DEBUG_EN
+
+
 	pName = strtok(pTopicStr, delims);
 
 	//继续读取行 里剩下的列字符串 直到获取到设备节点号1~n
@@ -72,34 +77,53 @@ static int getIntDevNodeFromMqttTopic(char *pTopic)
 }
 
 //从主题中获取设备名
-//返回字符串设备名 无效返回NULL
-static char *getStrDevNameFromMqttTopic(char *pTopic)
+//pTopic	主题
+//pDevName	主题中获取的设备名
+//返回 1有效设备名字符串 0无效设备名字符串NULL
+uint8_t getStrDevNameFromMqttTopic(char *pTopic,char *pDevName)
 {
 	char topicBuf[MAX_MQTT_TOPIC_LEN] = { 0 };
-	char *pName = NULL, *pTopicStr = topicBuf;
+	char *devName = NULL, *pTopicStr = topicBuf;
 	char delims[] = "/";
 
 
 	//有效性判断 失败
 	if (pTopic == NULL)
 	{
-		return NULL;
+		return 1;
 	}
 
 	//
 	strcpy(topicBuf, pTopic);
 
-	pName = strtok(pTopicStr, delims);
+#ifdef DEBUG_EN
+	printf("topicBuf = %s\n", topicBuf);
+#endif // DEBUG_EN
+
+	devName = strtok(pTopicStr, delims);
 
 	//继续读取行 里剩下的列字符串 直到获取到设备节点号1~n
-	for (uint8_t i = 1; (i < MQTT_DEV_NODE_NAME_OFFSET) && (pName != NULL); i++)
+	for (uint8_t i = 1; i < MQTT_DEV_NODE_NAME_OFFSET; i++)
 	{
-		pName = strtok(NULL, delims);
+		devName = strtok(NULL, delims);
 	}
 
-	//设备名字符串转 无效 为NULL
-	return pName;
+	if (devName != NULL)
+	{
+		//有效设备名
+		strcpy(pDevName, devName);
+
+		return 0;
+	}
+	else
+	{
+		//设备名字符串转 无效 为NULL
+		return 1;
+	}
+	
 }
+
+
 
 //从主题中获取操作订阅操作
 //返回字符串操作 无效返回NULL
@@ -118,6 +142,10 @@ static char *getStrDevOptFromMqttTopic(char *pTopic)
 
 	//
 	strcpy(topicBuf, pTopic);
+
+#ifdef DEBUG_EN
+	printf("topicBuf = %s\n", topicBuf);
+#endif // DEBUG_EN
 
 	pOperate = strtok(pTopicStr, delims);
 
@@ -215,13 +243,18 @@ uint8_t decodeMqttSub4ch(char *pTopic, char *pData, int dataLen)
 {
 	int devNodeNum = 0;
 	char devDataBuf[MAX_MQTT_DATA_LEN] = { 0 };
-	char *pDevName = NULL;
+	char pDevName[DEV_NAME_LEN] = { 0 };
 
 	//数据拷贝
 	memcpy(devDataBuf, pData, dataLen);
 
 	//获取节点号
 	devNodeNum = getIntDevNodeFromMqttTopic(pTopic);
+
+#ifdef DEBUG_EN
+	printf("mqttDevNodeNum = %d\n", devNodeNum);
+#endif // DEBUG_EN
+
 	if (0 == devNodeNum)
 	{
 		//获取节点号异常
@@ -229,12 +262,15 @@ uint8_t decodeMqttSub4ch(char *pTopic, char *pData, int dataLen)
 	}
 
 	//获取设备名
-	pDevName = getStrDevNameFromMqttTopic(pTopic);
-	if (NULL == pDevName)
+	if (getStrDevNameFromMqttTopic(pTopic, pDevName))
 	{
 		//获取设备名失败
 		return 0;
 	}
+
+#ifdef DEBUG_EN
+	printf("mqttDevName = %s\n", pDevName);
+#endif // DEBUG_EN
 
 	//获取数据
 	return (get4chMqttJsonData(devDataBuf, devNodeNum, pDevName));
@@ -282,7 +318,7 @@ int mqttPubInit(uint8_t devType, uint8_t *pWriteBuf, char *pTopic, char *pPublic
 			setPubTopic(AGREEMENT_CMD_MID_MASTER_4CH, devNode, pTopic);
 
 			//反回数据长度
-			return dataLen;
+			return dataLen+1;
 		}
 		//break;
 		case AGREEMENT_CMD_MID_MASTER_TEMP:

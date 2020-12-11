@@ -55,12 +55,20 @@ uint8_t decodeTcpData(uint8_t *pTcpData, uint8_t dataLen)
 	//获取设备大类型（传感器/控制器）
 	dealType = getDevType(pTcpData);
 
+#ifdef DEBUG_EN
+	printf("dealType= %02X\n", dealType);
+#endif // DEBUG_EN
+
 	//获取设备数据
 	switch (dealType)
 	{
 	case AGREEMENT_CMD_MID_MASTER_4CH:
 	{
+		//获取设备从指令
 		dealCmd = getDevCmd(pTcpData, AGREEMENT_CMD_MID_MASTER_4CH);
+#ifdef DEBUG_EN
+		printf("dealCmd= %02X\n", dealCmd);
+#endif // DEBUG_EN
 		switch (dealCmd)
 		{
 		case AGREEMENT_CMD_SALVE_4L_UP_CH_STATUS:
@@ -70,22 +78,37 @@ uint8_t decodeTcpData(uint8_t *pTcpData, uint8_t dataLen)
 			{
 				return err;
 			}
-
+#ifdef DEBUG_EN
+			printf("devId= %02X %02X %02X %02X\n", devId[0], devId[1], devId[2], devId[3]);
+#endif // DEBUG_EN
+			
 			//查找设备ID数据地址
 			devNote = getDev4ChCtlNode(devId);
 			if (0 == devNote)
 			{
 				return err;
 			}
+#ifdef DEBUG_EN
+			printf("devNote= %d\n", devNote);
+#endif // DEBUG_EN
 
 			//获取设备数据
-			if (0 == get4chCtrlData_chStatus(pTcpData, ptDevNodeInfo->ptDev4ChCtl[devNote - 1].devId))
+			if (0 == get4chCtrlData_chStatus(pTcpData, &ptDevNodeInfo->ptDev4ChCtl[devNote - 1].tTcpReadData.ch, &ptDevNodeInfo->ptDev4ChCtl[devNote - 1].tTcpReadData.chStatus))
 			{
 				return err;
 			}
 
-			err = AGREEMENT_CMD_SALVE_4L_UP_CH_STATUS;
+			//置位标志位
+			ptDevNodeInfo->ptDev4ChCtl[devNote - 1].devCmdFlag[DEV_CMD_4CH_ARRAY_READ_CHSTATUS_INDEX][FLAG_BUF_MQTTPUB_COLUMN] = 1;
+
+#ifdef DEBUG_EN
+			printf("ch=%02x, chStatus= %02x, mqttPubFlag= %d\n", ptDevNodeInfo->ptDev4ChCtl[devNote - 1].tTcpReadData.ch, ptDevNodeInfo->ptDev4ChCtl[devNote - 1].tTcpReadData.chStatus, ptDevNodeInfo->ptDev4ChCtl[devNote - 1].devCmdFlag[DEV_CMD_4CH_ARRAY_READ_CHSTATUS_INDEX][FLAG_BUF_MQTTPUB_COLUMN]);
+#endif // DEBUG_EN
+
+			
+			err = AGREEMENT_CMD_MID_MASTER_4CH;
 		}
+		break;
 		default:
 			break;
 		}

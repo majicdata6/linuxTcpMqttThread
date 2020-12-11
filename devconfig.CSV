@@ -2,7 +2,7 @@ dev_type,dev_name,dev_id,dev_cmd_read,dev_cmd_write,stop
 4channelCtrl,4chCtrl_desk,01836553,YES,YES,
 4channelCtrl,,abcdabcd,YES,YES,
 4channelCtrl,,1122aabb,YES,YES,
-3ledCtrl,3ledCtrl_0,11223345,YES,YES,
+4channelCtrl,4chCtrl_2chdesk,01a2f413,YES,YES,
 curtainCtrl,curtainCtrl_0,11223346,YES,YES,
 tempCtrl,tempCtrl_0,11223347,YES,YES,
 bodySensor,bodySensor_0,11223348,YES,NO,

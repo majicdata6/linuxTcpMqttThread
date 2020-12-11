@@ -2,7 +2,8 @@
 #define TCM_PRO_DATA_H
 
 #include <stdint.h>
-
+#include <stdio.h>
+#include <string.h>
 
 
 #define AGREEMENT_CMD_HEAD              	0X55    //–≠“ÈÕ∑

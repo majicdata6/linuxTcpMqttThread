@@ -1,13 +1,16 @@
 
 #include <string.h>
+
 #include "dev4chCtrl.h"
 #include "mycrc.h"
 
 
 
 //成功返回 1 失败返回0
-//pStorData 指向通道状态存储区，格式ch1=0/1,ch2=0/1,ch3=0/1,ch4=0/1 0-关 1-开
-uint8_t get4chCtrlData_chStatus(uint8_t *pTcpData, uint8_t *pStorData)
+//pTcpData		tcp原数据
+//pStorCh		操作的通道 低4位 高有效， 
+//pStorData		通道状态 低4位 通道4~通道1 对应bit3~0 ，1=开，0=关
+uint8_t get4chCtrlData_chStatus(uint8_t *pTcpData, uint8_t *pStorCh, uint8_t *pStorData)
 {
 	struct devData
 	{
@@ -23,14 +26,12 @@ uint8_t get4chCtrlData_chStatus(uint8_t *pTcpData, uint8_t *pStorData)
 
 	if (0 == (0xf0 & pDevData->nodeChStatus))
 	{
-		uint8_t chStatus = (0x0f & pDevData->nodeChStatus);
+		//通道
+		*pStorCh = 0x0F;
 
-		//通道状态转换算法
-		for (uint8_t i = 0; i < 4; i++)
-		{
-			pStorData[i] = (chStatus & 0x01);
-			chStatus >> 1;
-		}
+		//通道状态
+		*pStorData = (0x0f & pDevData->nodeChStatus);
+
 		return 1;
 	}
 

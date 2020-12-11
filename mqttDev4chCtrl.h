@@ -10,11 +10,11 @@
 
 //外部函数声明
 
+
 //pDataStr			json字符串数据指针
 //storDevNodeNum	解析数据存放地址节点1~n
 //返回获取结果 成功1 失败0
-uint8_t get4chMqttJsonData(char *pDataStr, int storDevNodeNum, char *pDevName);
-
+uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName);
 
 //编码网络数据包
 //pWriteBuf	编码数据存放地址
