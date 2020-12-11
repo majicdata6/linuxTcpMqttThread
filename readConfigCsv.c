@@ -242,7 +242,7 @@ uint8_t get4lCtrlConfig(char *profile, tDev_4channelCtl_Typedef *ptDevBuf, int g
 						record = strtok(NULL, delims);
 
 						#ifdef DEBUG_EN
-							printf("设备读取 dev_name?=%s\n", record);
+							printf("设备读取 dev_name=%s\n", record);
 						#endif
 
 						ps = record;
@@ -392,6 +392,14 @@ uint8_t get4lCtrlConfig(char *profile, tDev_4channelCtl_Typedef *ptDevBuf, int g
 		fclose(fp);
 		fp = NULL;
 	}
+#ifdef DEBUG_EN
+	printf("\n*** Dev 4ch config file(%s),4chTotal=%d ***\n", profile, getDevCount);
+	printf("%-10s %-20s %-20s %-15s %-10s %-10s\n","devNum","devName","devTopic","devId","readCmd","writeCmd");
+	for (int i = 0; i < getDevCount; i++)
+	{
+		printf("%-10s %-20s %-20s %02x %02x %02x %02x     %-10d %-10d\n", (ptDevBuf + i)->devNum, (ptDevBuf + i)->devName, (ptDevBuf + i)->mqttTopicName, (ptDevBuf + i)->devId[0], (ptDevBuf + i)->devId[1], (ptDevBuf + i)->devId[2],(ptDevBuf + i)->devId[3],(ptDevBuf + i)->readCmd,(ptDevBuf + i)->writeCmd);
+	}
+#endif // DEBUG_EN
 
 	if(getDevCount)
 	{

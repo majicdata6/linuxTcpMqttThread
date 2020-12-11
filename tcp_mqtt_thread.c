@@ -125,6 +125,14 @@ void tcpConnectInfoInit(tTcpConnectServerInfoTypedef *ptTcpServerInfo, char *pFi
 	//tcp客户端 读取配置文件，获取ip/port
 	GetProfileString(fileNameBuf, TCP_CONFIG_IP_NAME, ptTcpServerInfo->tcpServerIp);
 	GetProfileInt(fileNameBuf, TCP_CONFIG_PORT_NAME, &ptTcpServerInfo->tcpServerPort);
+
+#ifdef DEBUG_EN
+	printf("\n*** Tcp connect cofig file(%s) ***\n", pFileName);
+	printf("tcpServerIp=%s\n", ptTcpServerInfo->tcpServerIp);
+	printf("port=%d\n", ptTcpServerInfo->tcpServerPort);
+
+#endif // DEBUG_EN
+
 }
 
 //mqttClient连接初始化
@@ -143,7 +151,21 @@ void mqttConnectInfoInit(tMqttConnectServerInfoTypedef *ptMqttServerInfo, char *
 	GetProfileString(fileNameBuf, MQTT_CONFIG_USENAME_NAME, ptMqttServerInfo->mqttClientUsername);
 	GetProfileString(fileNameBuf, MQTT_CONFIG_PASSWORT_NAME, ptMqttServerInfo->mqttClientPassword);
 
-	//GetProfileString(fileNameBuf, MQTT_CONFIG_TOPIC_NAME, ptMqttServerInfo->mqttPubClientTopic);
+	GetProfileString(fileNameBuf, MQTT_CONFIG_TOPIC_NAME, ptMqttServerInfo->mqttSubClientTopicHead);
+
+#ifdef DEBUG_EN
+	printf("\n*** Mqtt connect cofig file(%s) ***\n", pFileName);
+	printf("mqttAddrs=%s\n", ptMqttServerInfo->mqttServerAddress);
+	printf("mqttPubClientId=%s\n", ptMqttServerInfo->mqttPubClientId);
+	printf("mqttSubClientId=%s\n", ptMqttServerInfo->mqttSubClientId);
+	printf("mqttTimeOut=%d\n", ptMqttServerInfo->mqttTimeOut);
+	printf("mqttClientUsername=%s\n", ptMqttServerInfo->mqttClientUsername);
+	printf("mqttClientPassword=%s\n", ptMqttServerInfo->mqttClientPassword);
+	printf("mqttSubClientTopicHead=%s\n", ptMqttServerInfo->mqttSubClientTopicHead);
+
+
+#endif // DEBUG_EN
+
 }
 
 
@@ -540,6 +562,7 @@ void *subClient_4ch(void *tMqttInfo)
 
 		//封装订阅主题 7层（过滤后三层）
 		strcpy(subTopic, pInfo->mqttSubClientTopicHead);	//主题头部3层 建筑/楼层/网关
+		strcat(subTopic, "/");
 		strcat(subTopic, DEV_TYPE_NAME_4CH_CTRL);			//4层 设备类型
 		strcat(subTopic, "/+");								//5层 设备名 -统配
 		strcat(subTopic, "/+");								//6层 设备节点 -统配
@@ -708,6 +731,11 @@ void *tcpClient_r(void *tTcpInfo)
 			sleep(30);
 		}
 
+#ifdef DEBUG_EN
+		printf("\n*** tcp read connect ok ***\n");
+#endif // DEBUG_EN
+
+
 		//循环接收
 		while (1)
 		{
@@ -818,6 +846,9 @@ void *tcpClient_w(void *tTcpInfo)
 
 			sleep(30);
 		}
+#ifdef DEBUG_EN
+		printf("\n*** tcp write connect ok ***\n");
+#endif // DEBUG_EN
 
 		//循环发送
 		while (1)
@@ -909,6 +940,8 @@ int main(int argc, char* argv[])
 	{
 		printf("Dev_%s config fail", DEV_TYPE_NAME_4CH_CTRL);
 	}
+
+
 	//led
 	//temp
 	//curtain
