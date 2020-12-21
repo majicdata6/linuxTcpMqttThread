@@ -244,6 +244,7 @@ uint8_t decodeMqttSub4ch(char *pTopic, char *pData, int dataLen)
 	int devNodeNum = 0;
 	char devDataBuf[MAX_MQTT_DATA_LEN] = { 0 };
 	char pDevName[DEV_NAME_LEN] = { 0 };
+	uint8_t err = 0;
 
 	//数据拷贝
 	memcpy(devDataBuf, pData, dataLen);
@@ -273,7 +274,8 @@ uint8_t decodeMqttSub4ch(char *pTopic, char *pData, int dataLen)
 #endif // DEBUG_EN
 
 	//获取数据
-	return (get4chMqttJsonData(devDataBuf, devNodeNum, pDevName));
+	err = get4chMqttJsonData(devDataBuf, devNodeNum, pDevName);
+	return (err);
 
 }
 
@@ -296,7 +298,7 @@ int mqttPubInit(uint8_t devType, uint8_t *pWriteBuf, char *pTopic, char *pPublic
 		case AGREEMENT_CMD_MID_MASTER_4CH:
 		{
 			//获取节点 和指令
-			devNode = getDev4ChCtrlCmdFromMqtt(&cmd);
+			devNode = getMqttPubFlagFromDev4ChCtrl(&cmd);
 			if (0 == devNode)
 			{
 				return 0;

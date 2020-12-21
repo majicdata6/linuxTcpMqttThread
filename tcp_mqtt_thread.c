@@ -222,8 +222,12 @@ int msgarrvd_4ch(void *context, char *topicName, int topicLen, MQTTClient_messag
 	int i;
 	char* payloadptr;
 
+#ifdef DEBUG_EN
 	printf("topic=%s\n", topicName);
 	printf("message=%s\n", message->payload);
+	printf("message_len=%d\n", message->payloadlen);
+#endif // DEBUG_EN
+
 
 #if 1
 	//数据解析、存放
@@ -232,9 +236,16 @@ int msgarrvd_4ch(void *context, char *topicName, int topicLen, MQTTClient_messag
 		//解析错误
 		MQTTClient_freeMessage(&message);
 		MQTTClient_free(topicName);
+#ifdef DEBUG_EN
+		printf("json_decode-err\n");
+#endif // DEBUG_EN
+
 		return 1;
 	}
 
+#ifdef DEBUG_EN
+	printf("json_decode-ok\n");
+#endif // DEBUG_EN
 	//根据下发需求 发送tcp-4ch发送信号量
 	sem_post(&semTcp4chSend);
 #endif // 0
@@ -242,7 +253,7 @@ int msgarrvd_4ch(void *context, char *topicName, int topicLen, MQTTClient_messag
 	
 
 #if 0
-	//
+	//之前的测试数据
 	memset(s_buf,'\0',sizeof(s_buf));
 	strcpy(s_buf,topicName);
 	int str_len = 0;
@@ -931,6 +942,19 @@ void *tcpWriteInit_4ch(void *tTcpInfo)
 		pInfo->writeLen = 0;
 
 		pInfo->writeLen = tcpWriteInit(AGREEMENT_CMD_MID_MASTER_4CH, pInfo->wbuf);
+
+#ifdef DEBUG_EN
+
+		printf("tcp_4ch_send_sem\n");
+		printf("send_tcp_buf_data = ");
+		for (int i = 0; i < pInfo->writeLen; i++)
+		{
+			printf("%02X ", pInfo->wbuf[i]);
+		}
+		printf("\n");
+
+#endif // DEBUG_EN
+
 		if (pInfo->writeLen)
 		{
 			//发送 semTcpSend 信号量
@@ -942,6 +966,7 @@ void *tcpWriteInit_4ch(void *tTcpInfo)
 			//解锁 mutexTcpSend 互斥锁
 			pthread_mutex_unlock(&mutexTcpSend);
 		}
+
 	}
 }
 

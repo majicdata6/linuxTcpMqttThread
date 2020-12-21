@@ -49,48 +49,37 @@ static int setPub4chCtrlData_chStatus(uint8_t *pWriteBuf, uint8_t ch, uint8_t ch
 	//数据 json格式化 
 	cJSON *json = NULL;
 	cJSON *jsonData = NULL;
-	cJSON *jsonCh1 = NULL;
-	cJSON *jsonCh2 = NULL;
-	cJSON *jsonCh3 = NULL;
-	cJSON *jsonCh4 = NULL;
 
 	char *strMqttData = NULL;
 
 	//创建josn对象
 	json = cJSON_CreateObject();
 	//创建数组对象
-	jsonData = cJSON_CreateArray();
+	jsonData = cJSON_CreateObject();
 
-	//添加设备指令 描述
+	//添加设备指令 描述 到对象
 	cJSON_AddStringToObject(json, MQTT_DEV_CMD_NAME, MQTT_DEV_CMD_CHSTATUS);
 
-	//添加数据数组到对象
+	//添加数据对象到对象
 	cJSON_AddItemToObject(json, MQTT_DEV_DATA_NAME, jsonData);
+	
 
 	//添加数据到数据数组
 	if (chx[0] != NULL)
 	{
-		jsonCh1 = cJSON_CreateObject();
-		cJSON_AddStringToObject(jsonCh1, MQTT_DEV_CH1_NAME, chx[0]);
-		cJSON_AddItemToArray(jsonData, jsonCh1);
+		cJSON_AddStringToObject(jsonData, MQTT_DEV_CH1_NAME, chx[0]);
 	}
 	if (chx[1] != NULL)
 	{
-		jsonCh2 = cJSON_CreateObject();
-		cJSON_AddStringToObject(jsonCh2, MQTT_DEV_CH2_NAME, chx[1]);
-		cJSON_AddItemToArray(jsonData, jsonCh2);
+		cJSON_AddStringToObject(jsonData, MQTT_DEV_CH2_NAME, chx[1]);
 	}
 	if (chx[2] != NULL)
 	{
-		jsonCh3 = cJSON_CreateObject();
-		cJSON_AddStringToObject(jsonCh3, MQTT_DEV_CH3_NAME, chx[2]);
-		cJSON_AddItemToArray(jsonData, jsonCh3);
+		cJSON_AddStringToObject(jsonData, MQTT_DEV_CH3_NAME, chx[2]);
 	}
 	if (chx[3] != NULL)
 	{
-		jsonCh4 = cJSON_CreateObject();
-		cJSON_AddStringToObject(jsonCh4, MQTT_DEV_CH4_NAME, chx[3]);
-		cJSON_AddItemToArray(jsonData, jsonCh4);
+		cJSON_AddStringToObject(jsonData, MQTT_DEV_CH4_NAME, chx[3]);
 	}
 
 	//json数据字符串化
@@ -103,12 +92,9 @@ static int setPub4chCtrlData_chStatus(uint8_t *pWriteBuf, uint8_t ch, uint8_t ch
 	cJSON_Delete(json);
 
 	//返回数据长度
-	return(strlen(pWriteBuf));
+	return(strlen(pWriteBuf)+1);
 }
 
-
-
-#if 0
 
 //pDataStr			json字符串数据指针
 //storDevNodeNum	解析数据存放地址节点1~n
@@ -118,6 +104,9 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 	//数数据检测
 	if ((storDevNodeNum < 1) || (storDevNodeNum > tDevTypeNodeTotal.dev4chCtrlTotal) || (pDevName == NULL))
 	{
+#ifdef DEBUG_EN
+		printf("input_param-err\n");
+#endif // DEBUG_EN
 		//输入信息错误 返回
 		return 0;
 	}
@@ -125,20 +114,54 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 	tDev_4channelCtl_Typedef *ptDevNode = (tDevTypeNodeTotal.ptDev4ChCtl + storDevNodeNum - 1);
 	if (strcmp(ptDevNode->devName, pDevName) != 0)
 	{
+#ifdef DEBUG_EN
+		printf("ptDevNode_err=%s\n", ptDevNode->devName);
+#endif // DEBUG_EN
+
 		//设备名不匹配
 		return 0;
 	}
+
+#ifdef DEBUG_EN
+	//打印要解析的数据
+	printf("json-str= %s\n", pDataStr);
+#endif
 
 	//json数据解析
 	cJSON *json_r = cJSON_Parse(pDataStr);
 	if (json_r == NULL)
 	{
+#ifdef DEBUG_EN
+		printf("json_r_err\n");
+#endif // DEBUG_EN
+
 		//失败返回
 		return 0;
 	}
 
+
 	//获取 设备指令
 	cJSON *json_devCmd = cJSON_GetObjectItemCaseSensitive(json_r, MQTT_DEV_CMD_NAME);
+	if (json_devCmd == NULL)
+	{
+
+#ifdef DEBUG_EN
+		printf("json_devCmd=null\n");
+#endif // DEBUG_EN
+
+		cJSON_Delete(json_r);
+
+		return 0;
+
+	}
+	else
+	{
+#ifdef DEBUG_EN
+		printf("cmdname= %s\n", json_devCmd->valuestring);
+#endif // DEBUG_EN
+	}
+
+
 	if (cJSON_IsString(json_devCmd) && (json_devCmd->valuestring != NULL))
 	{
 #ifdef DEBUG_EN
@@ -148,9 +171,18 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 	}
 	else
 	{
+
+#ifdef DEBUG_EN
+		printf("devCmd-err=%s\n", json_devCmd->valuestring);
+#endif // DEBUG_EN
+
+		cJSON_Delete(json_r);
+
 		//失败返回
 		return 0;
 	}
+
+
 
 	//指令-获取设置4路控制器通道状态
 	if (strcmp(json_devCmd->valuestring, MQTT_DEV_CMD_CHSTATUS_SET) == 0)
@@ -158,138 +190,122 @@ uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
 		//写使能判断
 		if (ptDevNode->writeCmd == 0)
 		{
+#ifdef DEBUG_EN
+			printf("writeCmd-DisEN\n");
+#endif // DEBUG_EN
 			//次指令没有使能
-			return 1;
+			return 0;
 		}
 
-		//解析数据 它是一个数组
-		cJSON *json_data = cJSON_GetObjectItemCaseSensitive(json_r, MQTT_DEV_DATA_NAME);
-		cJSON *json_dataValue = NULL;
+		//设置操作通道 和 通道值
+		uint8_t ch = 0;
+		uint8_t chStatus = 0;
 
-		//遍历数组
-		cJSON_ArrayForEach(json_dataValue, json_data)
+
+
+
+		//解析数据 
+		cJSON *json_data = cJSON_GetObjectItem(json_r, MQTT_DEV_DATA_NAME);
+		if (json_data != NULL)
 		{
-			cJSON *json_ch1 = cJSON_GetObjectItemCaseSensitive(json_dataValue, MQTT_DEV_CH1_NAME);
-			cJSON *json_ch2 = cJSON_GetObjectItemCaseSensitive(json_dataValue, MQTT_DEV_CH2_NAME);
-			cJSON *json_ch3 = cJSON_GetObjectItemCaseSensitive(json_dataValue, MQTT_DEV_CH3_NAME);
-			cJSON *json_ch4 = cJSON_GetObjectItemCaseSensitive(json_dataValue, MQTT_DEV_CH4_NAME);
-
-#ifdef DEBUG_EN
-			printf("ch1Status = %s\n", json_ch1->valuestring);
-			printf("ch2Status = %s\n", json_ch2->valuestring);
-			printf("ch3Status = %s\n", json_ch3->valuestring);
-			printf("ch4Status = %s\n", json_ch4->valuestring);
-
-#endif // DEBUG_EN
-
-
-			//设置操作通道 和 通道值
-			uint8_t ch = 0;
-			uint8_t chStatus = 0;
+			cJSON *json_ch1 = cJSON_GetObjectItemCaseSensitive(json_data, MQTT_DEV_CH1_NAME);
 			if (json_ch1 != NULL)
 			{
+#ifdef DEBUG_EN
+				printf("ch1v=%s\n", json_ch1->valuestring);
+#endif // DEBUG_EN
+
 				ch |= 0x01;
 				if (strcmp(json_ch1->valuestring, MQTT_DEV_CH_ON) == 0)
 				{
 					chStatus |= 0x01;
 				}
 			}
-
+			cJSON *json_ch2 = cJSON_GetObjectItemCaseSensitive(json_data, MQTT_DEV_CH2_NAME);
 			if (json_ch2 != NULL)
 			{
-				ch |= 0x01 << 1;
+#ifdef DEBUG_EN
+				printf("ch2v=%s\n", json_ch2->valuestring);
+#endif // DEBUG_EN
+
+				ch |= 0x02;
 				if (strcmp(json_ch2->valuestring, MQTT_DEV_CH_ON) == 0)
 				{
-					chStatus |= 0x01 << 1;
+					chStatus |= 0x02;
 				}
 			}
-
+			cJSON *json_ch3 = cJSON_GetObjectItemCaseSensitive(json_data, MQTT_DEV_CH3_NAME);
 			if (json_ch3 != NULL)
 			{
-				ch |= 0x01 << 2;
+#ifdef DEBUG_EN
+				printf("ch3v=%s\n", json_ch3->valuestring);
+#endif // DEBUG_EN
+
+				ch |= 0x04;
 				if (strcmp(json_ch3->valuestring, MQTT_DEV_CH_ON) == 0)
 				{
-					chStatus |= 0x01 << 2;
+					chStatus |= 0x04;
+				}
+
+			}
+			cJSON *json_ch4 = cJSON_GetObjectItemCaseSensitive(json_data, MQTT_DEV_CH4_NAME);
+			if (json_ch4 != NULL)
+			{
+#ifdef DEBUG_EN
+				printf("ch4v=%s\n", json_ch4->valuestring);
+#endif // DEBUG_EN
+
+				ch |= 0x08;
+				if (strcmp(json_ch4->valuestring, MQTT_DEV_CH_ON) == 0)
+				{
+					chStatus |= 0x08;
 				}
 			}
 
-			if (json_ch4 != NULL)
-			{
-				ch |= 0x01 << 3;
-				if (strcmp(json_ch4->valuestring, MQTT_DEV_CH_ON) == 0)
-				{
-					chStatus |= 0x01 << 3;
-				}
-			}
 			//设置4路控制器节点通道值
 			if (ptDevNode->devCmdFlag[DEV_CMD_4CH_ARRAY_WRITE_CHSTATUS_INDEX][FLAG_BUF_TCPSEND_COLUMN])
 			{
 				ptDevNode->tMqttSubData.ch |= ch;
-				ptDevNode->tMqttSubData.chStatus |= chStatus;
+				for (uint8_t i = 0; i < 4; i++)
+				{
+					if (ch & (0x01 << i))
+					{
+						if (chStatus & (0x01 << i))
+						{
+							ptDevNode->tMqttSubData.chStatus |= (0x01 << i);
+						}
+						else
+						{
+							ptDevNode->tMqttSubData.chStatus &= (0xff ^ (0x01 << i));
+						}
+					}
+				}
 			}
 			else
 			{
 				ptDevNode->tMqttSubData.ch = ch;
 				ptDevNode->tMqttSubData.chStatus = chStatus;
+
+				//tcp写 下发标志位置位
+				ptDevNode->devCmdFlag[DEV_CMD_4CH_ARRAY_WRITE_CHSTATUS_INDEX][FLAG_BUF_TCPSEND_COLUMN] = 1;
 			}
 
-			//tcp写 下发标志位置位
-			ptDevNode->devCmdFlag[DEV_CMD_4CH_ARRAY_WRITE_CHSTATUS_INDEX][FLAG_BUF_TCPSEND_COLUMN] = 1;
-		}
-
-	}
-
-	//指令-获取
-	//指令-获取
-
-	return 1;
-}
-#endif // 0
-
-//pDataStr			json字符串数据指针
-//storDevNodeNum	解析数据存放地址节点1~n
-//返回获取结果 成功1 失败0
-uint8_t get4chMqttJsonData(char * pDataStr, int storDevNodeNum, char * pDevName)
-{
-	//数数据检测
-	if ((storDevNodeNum < 1) || (storDevNodeNum > tDevTypeNodeTotal.dev4chCtrlTotal) || (pDevName == NULL))
-	{
-		//输入信息错误 返回
-		return 0;
-	}
-
-	tDev_4channelCtl_Typedef *ptDevNode = (tDevTypeNodeTotal.ptDev4ChCtl + storDevNodeNum - 1);
-	if (strcmp(ptDevNode->devName, pDevName) != 0)
-	{
-		//设备名不匹配
-		return 0;
-	}
-
-	//json数据解析
-	cJSON *json_r = cJSON_Parse(pDataStr);
-	if (json_r == NULL)
-	{
-		//失败返回
-		return 0;
-	}
-
-	//获取 设备指令
-	cJSON *json_devCmd = cJSON_GetObjectItemCaseSensitive(json_r, MQTT_DEV_CMD_NAME);
-	if (cJSON_IsString(json_devCmd) && (json_devCmd->valuestring != NULL))
-	{
 #ifdef DEBUG_EN
-		printf("devCmd=%s\n", json_devCmd->valuestring);
+			printf("ch=%d,status=%d\n", ptDevNode->tMqttSubData.ch, ptDevNode->tMqttSubData.chStatus);
 #endif // DEBUG_EN
 
+		}
 	}
 	else
 	{
-		//失败返回
-		return 0;
+		//
+#ifdef DEBUG_EN
+		printf("json_devCmd != set_chStatus\n");
+#endif // DEBUG_EN
 	}
 
-
-	return 0;
+	cJSON_Delete(json_r);
+	return 1;
 }
 
 //编码网络数据包

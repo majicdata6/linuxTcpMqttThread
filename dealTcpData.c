@@ -201,7 +201,12 @@ int tcpWriteInit(uint8_t devType, uint8_t *pWriteBuf)
 		case AGREEMENT_CMD_MID_MASTER_4CH:
 		{
 			//获取节点 和指令
-			devNode = getDev4ChCtrlCmdFromMqtt(&cmd);
+			devNode = getTcpSendFlagFromDev4ChCtrl(&cmd);
+
+#ifdef DEBUG_EN
+			printf("get tcp send: devnode=%d,cmd=%02X\n",devNode,cmd);
+#endif // DEBUG_EN
+
 			if (0 == devNode)
 			{
 				return 0;

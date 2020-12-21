@@ -41,10 +41,10 @@ uint8_t get4chCtrlData_chStatus(uint8_t *pTcpData, uint8_t *pStorCh, uint8_t *pS
 //
 //pStorData 指向存储区，确保缓存大小足够
 //pDevId	设备ID
-//ch		控制的通道	低四位对应通道4~1，1有效
+//chSet		控制的通道	低四位对应通道4~1，1有效
 //status	对应的通道状态 低四位对应通道4~1状态，0-关，1-开
 //返回数据长度  成功返回非0数据长度 失败返回0
-int set4chCtrlData_chStatus(uint8_t *pStorData, uint8_t *pDevId, uint8_t ch, uint8_t status)
+int set4chCtrlData_chStatus(uint8_t *pStorData, uint8_t *pDevId, uint8_t chSet, uint8_t status)
 {
 	//数据初始化
 	struct tDevSetStatus
@@ -76,7 +76,7 @@ int set4chCtrlData_chStatus(uint8_t *pStorData, uint8_t *pDevId, uint8_t ch, uin
 	}*ptDevSetStatus;	//tDevSetStatus , *ptDevSetStatus;
 
 	//有效参数检测
-	if ((pStorData == NULL) || (pDevId == NULL) || (ch == 0))
+	if ((pStorData == NULL) || (pDevId == NULL) || (chSet == 0))
 	{
 		return 0;
 	}
@@ -103,7 +103,7 @@ int set4chCtrlData_chStatus(uint8_t *pStorData, uint8_t *pDevId, uint8_t ch, uin
 	memcpy(ptDevSetStatus->controlId, pDevId, TCM_ID_LEN);
 
 	//获取操作通道
-	ptDevSetStatus->nodeNumChNum &= (0x0f & ch);
+	ptDevSetStatus->nodeNumChNum = (0x0f & chSet);
 
 	//获取通道状态
 	ptDevSetStatus->chStatus = (0x0f & status);

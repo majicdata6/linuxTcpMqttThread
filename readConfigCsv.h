@@ -124,11 +124,11 @@ int getDev4ChCtlNode(uint8_t *pDevId);
 
 ///根据tcp下发标志位 获取设备4路控制器节点号（1~n）0没找到
 //cmdStor 有效标志为职位，获取置位标志位指令到此地址存储
-int getDev4ChCtNodeFromTcpFlag(uint8_t *cmdStor);
+int getTcpSendFlagFromDev4ChCtrl(uint8_t *cmdStor);
 
 //根据mqtt发布标志位 获取设备4路控制器节点号（1~n）0没找到
 //cmdStor 有效标志为职位，获取置位标志位指令到此地址存储
-int getDev4ChCtrlCmdFromMqtt(uint8_t *cmdStor);
+int getMqttPubFlagFromDev4ChCtrl(uint8_t *cmdStor);
 
 //从设备类型节点处获取设备名
 //devType	设备类型

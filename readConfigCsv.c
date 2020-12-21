@@ -529,7 +529,7 @@ int getDev4ChCtlNode(uint8_t *pDevId)
 
 //根据tcp下发标志位 获取设备4路控制器节点号（1~n）0没找到
 //cmdStor 有效标志为职位，获取置位标志位指令到此地址存储
-int getDev4ChCtNodeFromTcpFlag(uint8_t *cmdStor)
+int getTcpSendFlagFromDev4ChCtrl(uint8_t *cmdStor)
 {
 	int node = tDevTypeNodeTotal.dev4chCtrlCurrentNode;
 	int nodeTotal = tDevTypeNodeTotal.dev4chCtrlTotal;
@@ -550,6 +550,10 @@ int getDev4ChCtNodeFromTcpFlag(uint8_t *cmdStor)
 		{
 			if ((ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_TCPSEND_COLUMN])
 			{
+
+#ifdef DEBUG_EN
+				printf("NODE%d cmd%02X TCP_SEND_FLAG=%d \n", node, (ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_CMD_COLUMN], (ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_TCPSEND_COLUMN]);
+#endif // DEBUG_EN
 				(ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_TCPSEND_COLUMN] = 0;
 
 				*cmdStor = (ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_CMD_COLUMN];
@@ -568,7 +572,7 @@ int getDev4ChCtNodeFromTcpFlag(uint8_t *cmdStor)
 
 //根据mqtt发布标志位 获取设备4路控制器节点号（1~n）0没找到
 //cmdStor 有效标志为职位，获取置位标志位指令到此地址存储
-int getDev4ChCtrlCmdFromMqtt(uint8_t *cmdStor)
+int getMqttPubFlagFromDev4ChCtrl(uint8_t *cmdStor)
 {
 	int node = tDevTypeNodeTotal.dev4chCtrlCurrentMqttNode;
 	int nodeTotal = tDevTypeNodeTotal.dev4chCtrlTotal;
@@ -586,8 +590,12 @@ int getDev4ChCtrlCmdFromMqtt(uint8_t *cmdStor)
 
 		for (uint8_t j = 0; j < DEV_4L_CMD_TOTAL; j++)
 		{
+
 			if ((ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_MQTTPUB_COLUMN])
 			{
+#ifdef DEBUG_EN
+				printf("NODE%d cmd%02X MQTT_PUB_FLAG=%d \n", node, (ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_CMD_COLUMN], (ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_MQTTPUB_COLUMN]);
+#endif // DEBUG_EN
 				(ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_MQTTPUB_COLUMN] = 0;
 
 				*cmdStor = (ptDevCtrl + node)->devCmdFlag[j][FLAG_BUF_CMD_COLUMN];
@@ -598,6 +606,10 @@ int getDev4ChCtrlCmdFromMqtt(uint8_t *cmdStor)
 
 		node++;
 	}
+
+#ifdef DEBUG_EN
+	printf("not_find_tcp_send_flag\n");
+#endif // DEBUG_EN
 
 	tDevTypeNodeTotal.dev4chCtrlCurrentMqttNode = 0;
 
