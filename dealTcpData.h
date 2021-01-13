@@ -18,7 +18,7 @@
 
 //解析网络数据包
 //返回1正常，返回0失败
-uint8_t decodeTcpData(uint8_t *pTcpData, uint8_t dataLen);
+uint8_t decodeTcpData(uint8_t *pTcpData, int dataLen);
 
 //编码网络数据包
 //devType	设备类型

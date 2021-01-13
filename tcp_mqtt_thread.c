@@ -1,15 +1,4 @@
-#include <pthread.h>	//线程
-#include <stdio.h>		//标准输入输出
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>		//sleep延时函数
-#include <semaphore.h>	//信号量
-#include "MQTTClient.h"
-#if !defined(WIN32)
-#include <unistd.h>
-#else
-#include <windows.h>
-#endif
+
 
 //#include <stdio.h>
 #include <sys/types.h>
@@ -92,6 +81,11 @@ tTcpConnectServerInfoTypedef tTcpConnectServerInfo;
 //mqtt连接服务器信息
 tMqttConnectServerInfoTypedef tMqttConnectServerInfo;
 
+//线程控制块
+threadsCBT thrSCB[NUM_THREADS];			//有几个线程就创建几个线程控制块
+
+//线程锁
+
 
 
 //信号量
@@ -107,12 +101,16 @@ pthread_mutex_t mutexMqttPub = PTHREAD_MUTEX_INITIALIZER;	//mqtt发布	互斥锁
 
 
 
+
 volatile MQTTClient_deliveryToken deliveredtoken_4ch;
 
 volatile MQTTClient_deliveryToken deliveredtoken_led;
 volatile MQTTClient_deliveryToken deliveredtoken_curtain;
 volatile MQTTClient_deliveryToken deliveredtoken_temp;
 volatile MQTTClient_deliveryToken deliveredtoken_sensor;
+
+
+
 
 //tcp 连接初始化
 void tcpConnectInfoInit(tTcpConnectServerInfoTypedef *ptTcpServerInfo, char *pFileName)
@@ -537,11 +535,346 @@ void connlost_sensor(void *context, char *cause)
 }
 
 
+
+#if 1 //test mqtt
+#include "MQTTAsync.h"
+#define ADDRESS     "172.16.254.211:1883"
+#define CLIENTID    "ExampleClientPub"
+#define TOPIC       "test"
+#define PAYLOAD     "Hello World!"
+#define QOS         1
+#define TIMEOUT     10000L
+
+int finished = 0;
+
+void connlost(void *context, char *cause)
+{
+	MQTTAsync client = (MQTTAsync)context;
+	MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
+	int rc;
+
+	printf("\nConnection lost\n");
+	printf("     cause: %s\n", cause);
+
+	printf("Reconnecting\n");
+	conn_opts.keepAliveInterval = 20;
+	conn_opts.cleansession = 1;
+	if ((rc = MQTTAsync_connect(client, &conn_opts)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to start connect, return code %d\n", rc);
+		finished = 1;
+	}
+}
+
+void onDisconnectFailure(void* context, MQTTAsync_failureData* response)
+{
+	printf("Disconnect failed\n");
+	finished = 1;
+}
+
+void onDisconnect(void* context, MQTTAsync_successData* response)
+{
+	printf("Successful disconnection\n");
+	finished = 1;
+}
+
+void onSendFailure(void* context, MQTTAsync_failureData* response)
+{
+	MQTTAsync client = (MQTTAsync)context;
+	MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
+	int rc;
+
+	printf("Message send failed token %d error code %d\n", response->token, response->code);
+	opts.onSuccess = onDisconnect;
+	opts.onFailure = onDisconnectFailure;
+	opts.context = client;
+	if ((rc = MQTTAsync_disconnect(client, &opts)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to start disconnect, return code %d\n", rc);
+		exit(EXIT_FAILURE);
+	}
+}
+
+void onSend(void* context, MQTTAsync_successData* response)
+{
+	MQTTAsync client = (MQTTAsync)context;
+	MQTTAsync_disconnectOptions opts = MQTTAsync_disconnectOptions_initializer;
+	int rc;
+
+	printf("Message with token value %d delivery confirmed\n", response->token);
+	opts.onSuccess = onDisconnect;
+	opts.onFailure = onDisconnectFailure;
+	opts.context = client;
+	if ((rc = MQTTAsync_disconnect(client, &opts)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to start disconnect, return code %d\n", rc);
+		exit(EXIT_FAILURE);
+	}
+}
+
+
+void onConnectFailure(void* context, MQTTAsync_failureData* response)
+{
+	printf("Connect failed, rc %d\n", response ? response->code : 0);
+	finished = 1;
+}
+
+
+void onConnect(void* context, MQTTAsync_successData* response)
+{
+	MQTTAsync client = (MQTTAsync)context;
+	MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+	MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
+	int rc;
+
+	printf("Successful connection\n");
+	opts.onSuccess = onSend;
+	opts.onFailure = onSendFailure;
+	opts.context = client;
+	pubmsg.payload = PAYLOAD;
+	pubmsg.payloadlen = (int)strlen(PAYLOAD);
+	pubmsg.qos = QOS;
+	pubmsg.retained = 0;
+	if ((rc = MQTTAsync_sendMessage(client, TOPIC, &pubmsg, &opts)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to start sendMessage, return code %d\n", rc);
+		exit(EXIT_FAILURE);
+	}
+}
+
+int messageArrived(void* context, char* topicName, int topicLen, MQTTAsync_message* m)
+{
+	/* not expecting any messages */
+	return 1;
+}
+
+//4路控制器订阅线程
+void *pubTest(void *tMqttInfo)
+{
+	MQTTAsync client;
+	MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
+	int rc;
+
+	if ((rc = MQTTAsync_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to create client object, return code %d\n", rc);
+		exit(EXIT_FAILURE);
+	}
+
+	if ((rc = MQTTAsync_setCallbacks(client, NULL, connlost, messageArrived, NULL)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to set callback, return code %d\n", rc);
+		exit(EXIT_FAILURE);
+	}
+
+	conn_opts.keepAliveInterval = 20;
+	conn_opts.cleansession = 1;
+	conn_opts.onSuccess = onConnect;
+	conn_opts.onFailure = onConnectFailure;
+	conn_opts.context = client;
+	if ((rc = MQTTAsync_connect(client, &conn_opts)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to start connect, return code %d\n", rc);
+		exit(EXIT_FAILURE);
+	}
+
+	printf("Waiting for publication of %s\n"
+		"on topic %s for client with ClientID: %s\n",
+		PAYLOAD, TOPIC, CLIENTID);
+	while (!finished)
+#if defined(_WIN32)
+		Sleep(100);
+#else
+		usleep(10000L);
+#endif
+
+	MQTTAsync_destroy(&client);
+}
+
+#if 1 //sub mqtt 异步
+	int disc_finished = 0;
+	int subscribed = 0;
+	int subfinished = 0;
+
+	void sub_connlost(void *context, char *cause)
+	{
+		MQTTAsync client = (MQTTAsync)context;
+		MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
+		int rc;
+
+		printf("\nConnection lost\n");
+		if (cause)
+			printf("     cause: %s\n", cause);
+
+		printf("Reconnecting\n");
+		conn_opts.keepAliveInterval = 20;
+		conn_opts.cleansession = 1;
+		if ((rc = MQTTAsync_connect(client, &conn_opts)) != MQTTASYNC_SUCCESS)
+		{
+			printf("Failed to start connect, return code %d\n", rc);
+			subfinished = 1;
+		}
+	}
+
+
+	int sub_msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *message)
+	{
+		printf("Message arrived\n");
+		printf("     topic: %s\n", topicName);
+		printf("   message: %.*s\n", message->payloadlen, (char*)message->payload);
+		MQTTAsync_freeMessage(&message);
+		MQTTAsync_free(topicName);
+		return 1;
+	}
+
+	void sub_onDisconnectFailure(void* context, MQTTAsync_failureData* response)
+	{
+		printf("Disconnect failed, rc %d\n", response->code);
+		disc_finished = 1;
+	}
+
+	void sub_onDisconnect(void* context, MQTTAsync_successData* response)
+	{
+		printf("Successful disconnection\n");
+		disc_finished = 1;
+	}
+
+	void sub_onSubscribe(void* context, MQTTAsync_successData* response)
+	{
+		printf("Subscribe succeeded\n");
+		subscribed = 1;
+	}
+
+	void sub_onSubscribeFailure(void* context, MQTTAsync_failureData* response)
+	{
+		printf("Subscribe failed, rc %d\n", response->code);
+		subfinished = 1;
+	}
+
+
+	void sub_onConnectFailure(void* context, MQTTAsync_failureData* response)
+	{
+		printf("Connect failed, rc %d\n", response->code);
+		subfinished = 1;
+	}
+
+
+	void sub_onConnect(void* context, MQTTAsync_successData* response)
+	{
+		MQTTAsync client = (MQTTAsync)context;
+		MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
+		int rc;
+
+		printf("Successful connection\n");
+
+		printf("Subscribing to topic %s\nfor client %s using QoS%d\n\n"
+			"Press Q<Enter> to quit\n\n", TOPIC, CLIENTID, QOS);
+		opts.onSuccess = sub_onSubscribe;
+		opts.onFailure = sub_onSubscribeFailure;
+		opts.context = client;
+		if ((rc = MQTTAsync_subscribe(client, TOPIC, QOS, &opts)) != MQTTASYNC_SUCCESS)
+		{
+			printf("Failed to start subscribe, return code %d\n", rc);
+			subfinished = 1;
+		}
+	}
+
+
+	void* subTest(void *arg)
+	{
+		MQTTAsync client;
+		MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
+		MQTTAsync_disconnectOptions disc_opts = MQTTAsync_disconnectOptions_initializer;
+		int rc;
+		int ch;
+
+		if ((rc = MQTTAsync_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL))
+			!= MQTTASYNC_SUCCESS)
+		{
+			printf("Failed to create client, return code %d\n", rc);
+			rc = EXIT_FAILURE;
+			goto exit;
+		}
+
+		if ((rc = MQTTAsync_setCallbacks(client, client, sub_connlost, sub_msgarrvd, NULL)) != MQTTASYNC_SUCCESS)
+		{
+			printf("Failed to set callbacks, return code %d\n", rc);
+			rc = EXIT_FAILURE;
+			goto destroy_exit;
+		}
+
+		conn_opts.keepAliveInterval = 20;
+		conn_opts.cleansession = 1;
+		conn_opts.onSuccess = sub_onConnect;
+		conn_opts.onFailure = sub_onConnectFailure;
+		conn_opts.context = client;
+		if ((rc = MQTTAsync_connect(client, &conn_opts)) != MQTTASYNC_SUCCESS)
+		{
+			printf("Failed to start connect, return code %d\n", rc);
+			rc = EXIT_FAILURE;
+			goto destroy_exit;
+		}
+
+		while (!subscribed && !subfinished)
+	#if defined(_WIN32)
+			Sleep(100);
+	#else
+			usleep(10000L);
+	#endif
+
+		if (subfinished)
+			goto exit;
+
+		do
+		{
+			ch = getchar();
+		} while (ch != 'Q' && ch != 'q');
+
+		disc_opts.onSuccess = sub_onDisconnect;
+		disc_opts.onFailure = sub_onDisconnectFailure;
+		if ((rc = MQTTAsync_disconnect(client, &disc_opts)) != MQTTASYNC_SUCCESS)
+		{
+			printf("Failed to start disconnect, return code %d\n", rc);
+			rc = EXIT_FAILURE;
+			goto destroy_exit;
+		}
+		while (!disc_finished)
+		{
+	#if defined(_WIN32)
+			Sleep(100);
+	#else
+			usleep(10000L);
+	#endif
+		}
+
+	destroy_exit:
+		MQTTAsync_destroy(&client);
+	exit:
+		MQTTAsync_destroy(&client);
+	}
+
+#endif
+
+#endif // 1
+
+
 //4路控制器订阅线程
 void *subClient_4ch(void *tMqttInfo)
 {
-	tMqttConnectServerInfoTypedef *pInfo = (tMqttConnectServerInfoTypedef *)tMqttInfo;
+#if 1
+	while (1)
+	{
+		printf("subClient_4ch\n");
+		//sem_post(&semTcp4chSend);
+		sleep(10);
+	}
+#endif
 
+
+#if 0
+	//tMqttConnectServerInfoTypedef *pInfo = (tMqttConnectServerInfoTypedef *)tMqttInfo;
+
+	tMqttConnectServerInfoTypedef *pInfo = &tMqttConnectServerInfo;
 
 	printf("thread subClient_4ch start!\n");
    
@@ -605,12 +938,24 @@ void *subClient_4ch(void *tMqttInfo)
 	}
    
    pthread_exit(NULL);
+#endif
 }
 
 //mqtt发布线程
 void *pubClient(void *tMqttInfo)
 {
-	tMqttConnectServerInfoTypedef *pInfo = (tMqttConnectServerInfoTypedef *)tMqttInfo;
+#if 1
+	while(1)
+	{
+		printf("pubClient\n");
+		sleep(10);
+	}
+#endif
+
+#if 0
+	//tMqttConnectServerInfoTypedef *pInfo = (tMqttConnectServerInfoTypedef *)tMqttInfo;
+
+	tMqttConnectServerInfoTypedef *pInfo = &tMqttConnectServerInfo;
 	
 	//声明一个MQTTClient
 	MQTTClient client;
@@ -672,13 +1017,29 @@ void *pubClient(void *tMqttInfo)
 	
 	MQTTClient_disconnect(client, 10000);
 	MQTTClient_destroy(&client);
+
+#endif
+
 }
 
 //4路控制器发布初始化
 void *mqttPubInit_4ch(void *tMqttInfo)
 {
-	tMqttConnectServerInfoTypedef *ptMqttServerInfo = (tMqttConnectServerInfoTypedef *)tMqttInfo;
-	tMqttPubInfoTypedef *pInfo = &ptMqttServerInfo->tmqttPubInfo;
+#if 1
+	while (1)
+	{
+		printf("mqttPubInit_4ch\n");
+		sleep(10);
+	}
+#endif
+
+#if 0
+	//tMqttConnectServerInfoTypedef *ptMqttServerInfo = (tMqttConnectServerInfoTypedef *)tMqttInfo;
+	//tMqttPubInfoTypedef *pInfo = &ptMqttServerInfo->tmqttPubInfo;
+
+	tMqttConnectServerInfoTypedef *ptMqttServerInfo = &tMqttConnectServerInfo;
+	tMqttPubInfoTypedef *pInfo = &tMqttConnectServerInfo.tmqttPubInfo;
+
 	while (1)
 	{
 		//等待发送信号
@@ -706,77 +1067,143 @@ void *mqttPubInit_4ch(void *tMqttInfo)
 			pthread_mutex_unlock(&mutexMqttPub);
 		}
 	}
+#endif
 }
 
 void *tcpClient_r(void *tTcpInfo)
 {
-	tTcpConnectServerInfoTypedef *pInfo = (tTcpConnectServerInfoTypedef *)tTcpInfo;
+#if 1
+	while (1)
+	{
+		printf("mqttPubInit_4ch\n");
+		
+		sleep(10);
+	}
+#endif
 
-	int rec_len = 0;
+#if 0
+
+	char *server_ip_addr = "172.16.16.152";
+	int server_ip_port = 3333;
+	char buf[1024] = {0};
+	int len = 0;
+
+	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (socket_fd < 0) 
+	{
+		fprintf(stderr, "socket error %s errno: %d\n", strerror(errno), errno);
+	}
+
+	struct sockaddr_in t_sockaddr;
+	memset(&t_sockaddr, 0, sizeof(struct sockaddr_in));
+	t_sockaddr.sin_family = AF_INET;
+	t_sockaddr.sin_port = htons(server_ip_port);
+	inet_pton(AF_INET, server_ip_addr, &t_sockaddr.sin_addr);
+
+	if ((connect(socket_fd, (struct sockaddr*)&t_sockaddr, sizeof(struct sockaddr))) < 0) 
+	{
+		fprintf(stderr, "connect error %s errno: %d\n", strerror(errno), errno);
+		return 0;
+	}
+
+	while (1) 
+	{
+		len = recv(socket_fd, buf, 1024, 0);
+
+		if(len)
+		{
+			buf[len] = '/0';
+			printf("received:%s\n", buf);
+			memset(buf, 0, 1024);
+		}
+		else
+		{
+			fprintf(stderr, "recv message error: %s errno : %d", strerror(errno), errno);
+		}
+		
+
+	}
+	
+	close(socket_fd);
+	socket_fd = -1;
+#endif // 0
+
+#if 0
+
+	//tTcpConnectServerInfoTypedef *pInfo = (tTcpConnectServerInfoTypedef *)tTcpInfo;
+	tTcpConnectServerInfoTypedef *pInfo = &tTcpConnectServerInfo;
+
 	int socket_fd = 0;				//声明socket描述符
 	struct sockaddr_in t_sockaddr;	//连接服务器地址结构体声明
 
 	uint8_t dealType = 0;
 
-	while (1)
+
+	//socket描述符
+	socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (socket_fd < 0)
 	{
-		//socket描述符
-		socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-		if (socket_fd < 0)
-		{
-			fprintf(stderr, "socket error %s errno: %d\n", strerror(errno), errno);
-		}
+		fprintf(stderr, "socket error %s errno: %d\n", strerror(errno), errno);
+	}
 
-		memset(&t_sockaddr, 0, sizeof(struct sockaddr_in));
+	memset(&t_sockaddr, 0, sizeof(struct sockaddr_in));
 
-		t_sockaddr.sin_family = AF_INET;
-		t_sockaddr.sin_port = htons(pInfo->tcpServerPort);
-		inet_pton(AF_INET, pInfo->tcpServerIp, &t_sockaddr.sin_addr);
+	t_sockaddr.sin_family = AF_INET;
+	t_sockaddr.sin_port = htons(pInfo->tcpServerPort);
+	inet_pton(AF_INET, pInfo->tcpServerIp, &t_sockaddr.sin_addr);
 
-		//connect连接 -失败后30s重连
-		//if((connect(socket_fd, (struct sockaddr*)&t_sockaddr, sizeof(struct sockaddr))) < 0 ) 
-		//{
-		//	fprintf(stderr, "connect error %s errno: %d\n", strerror(errno), errno);
-		//	// return 0;
-		//	exit(1);  
-		//}
-
-		while ((connect(socket_fd, (struct sockaddr*)&t_sockaddr, sizeof(struct sockaddr))) < 0)
-		{
-
-			fprintf(stderr, "connect error %s errno: %d\n", strerror(errno), errno);
-			/*	exit(1);*/
-			sleep(30);
-		}
 
 #ifdef DEBUG_EN
-		printf("\n*** tcp read connect ok ***\n");
+	printf("tcpIP=%s port=%d", pInfo->tcpServerIp, t_sockaddr.sin_port);
+#endif // DEBUG_EN
+
+	//connect连接 -失败后30s重连
+	if((connect(socket_fd, (struct sockaddr*)&t_sockaddr, sizeof(struct sockaddr))) < 0 ) 
+	{
+		fprintf(stderr, "connect error %s errno: %d\n", strerror(errno), errno);
+		// return 0;
+		exit(1);  
+	}
+
+	//while ((connect(socket_fd, (struct sockaddr*)&t_sockaddr, sizeof(struct sockaddr))) < 0)
+	//{
+
+	//	fprintf(stderr, "connect error %s errno: %d\n", strerror(errno), errno);
+	//	/*	exit(1);*/
+	//	sleep(30);
+	//}
+
+#ifdef DEBUG_EN
+	printf("\n*** tcp read connect ok ***\n");
 #endif // DEBUG_EN
 
 
-		//循环接收
-		while (1)
+	//循环接收
+	while (1)
+	{
+
+		//接收
+		if ((pInfo->readLen = recv(socket_fd, pInfo->rbuf, TCP_RECIVE_BUF_LEN, 0)) == -1)
 		{
-			//
-			if ((rec_len = recv(socket_fd, pInfo->rbuf, TCP_RECIVE_BUF_LEN, 0)) == -1)
-			{
-				perror("recv error\n");
-				/*exit(1);*/
-				break;
-			}
-
-			pInfo->readLen = rec_len;
-#if 0
-
-			for (int i = 0; i < rec_len; i++)
-			{
-				printf("%02X ", pInfo->rbuf[i]);
-			}
-			printf("\n ");
-#endif // 0
-#if 1
+			perror("recv error\n");
+			exit(1);
+			//break;
+		}
 
 
+#ifdef DEBUG_EN
+		//接收打印
+		for (int i = 0; i < pInfo->readLen; i++)
+		{
+			printf("%02X ", pInfo->rbuf[i]);
+		}
+		printf("\n ");
+#endif // DEBUG_EN
+
+
+		//有接收数据
+		if (pInfo->readLen)
+		{
 
 			//tcp数据接收解析
 			dealType = decodeTcpData(pInfo->rbuf, pInfo->readLen);
@@ -789,25 +1216,27 @@ void *tcpClient_r(void *tTcpInfo)
 			{
 			case AGREEMENT_CMD_MID_MASTER_4CH:
 			{
-#if 1
+
 #ifdef DEBUG_EN
-				for (int i = 0; i < rec_len; i++)
+				//4路数据解析
+				printf("4luData= ");
+				for (int i = 0; i < pInfo->readLen; i++)
 				{
 					printf("%02X ", pInfo->rbuf[i]);
 				}
 				printf("\n ");
 #endif // DEBUG_EN
 
-				
-#endif // 0
 
-#if 1
+
+
+#if 1 //semMqtt4chPub 信号量发送
 				dealType = 0;
 				//发送信号
 				sem_post(&semMqtt4chPub);
 #endif // 0
 
-				
+
 			}
 			break;
 			case AGREEMENT_CMD_MID_MASTER_TEMP:
@@ -835,27 +1264,73 @@ void *tcpClient_r(void *tTcpInfo)
 			default:
 				break;
 			}
-			
-
-#ifdef DEBUG_EN
-			//printf("%s\n", pInfo->rbuf);
-#endif // DEBUG_EN
-#endif // 0
 		}
 
-		close(socket_fd);
-		socket_fd = -1;
-
-		//异常退出或断开后间隔连接
-		perror("err_tcpRead_disconnect try to connect after 300s\n");
-		sleep(300);//5分钟
 	}
+
+	close(socket_fd);
+	socket_fd = -1;
+
+	//异常退出
+	perror("err_tcpRead_disconnect\n");
+#endif // 0
+
 }
 
 void *tcpClient_w(void *tTcpInfo)
 {
-	tTcpConnectServerInfoTypedef *pInfo = (tTcpConnectServerInfoTypedef *)tTcpInfo;
+#if 1
+	while (1)
+	{
+		printf("tcpClient_w\n");
+		sleep(10);
+	}
+#endif // 0
 
+#if 0
+	char *server_ip_addr = "172.16.16.152";
+	int server_ip_port = 3333;
+	char *send_message = "hello";
+
+	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (socket_fd < 0) {
+		fprintf(stderr, "socket error %s errno: %d\n", strerror(errno), errno);
+	}
+
+	struct sockaddr_in t_sockaddr;
+	memset(&t_sockaddr, 0, sizeof(struct sockaddr_in));
+	t_sockaddr.sin_family = AF_INET;
+	t_sockaddr.sin_port = htons(server_ip_port);
+	inet_pton(AF_INET, server_ip_addr, &t_sockaddr.sin_addr);
+
+	if ((connect(socket_fd, (struct sockaddr*)&t_sockaddr, sizeof(struct sockaddr))) < 0) {
+		fprintf(stderr, "connect error %s errno: %d\n", strerror(errno), errno);
+		return 0;
+	}
+
+	while (1)
+	{
+		sem_wait(&semTcpSend);
+
+		if ((send(socket_fd, send_message, strlen(send_message), 0)) < 0)
+		{
+			fprintf(stderr, "send message error: %s errno : %d", strerror(errno), errno);
+			return 0;
+		}
+
+		pthread_mutex_unlock(&mutexTcpSend);
+
+	}
+
+	close(socket_fd);
+	socket_fd = -1;
+#endif
+
+#if 0
+
+	//tTcpConnectServerInfoTypedef *pInfo = (tTcpConnectServerInfoTypedef *)tTcpInfo;
+
+	tTcpConnectServerInfoTypedef *pInfo = &tTcpConnectServerInfo;
 
 	int socket_fd = 0;				//socket 声明
 	struct sockaddr_in t_sockaddr;	//服务器地址声明
@@ -923,11 +1398,28 @@ void *tcpClient_w(void *tTcpInfo)
 		perror("err_tcpWrite_disconnect try to connect after 300s\n");
 		sleep(300);//5分钟
 	}
+
+#endif // 0
 }
 
 void *tcpWriteInit_4ch(void *tTcpInfo)
 {
-	tTcpConnectServerInfoTypedef *pInfo = (tTcpConnectServerInfoTypedef *)tTcpInfo;
+#if 1
+	while (1)
+	{
+		//sem_wait(&semTcp4chSend);
+		//pthread_mutex_lock(&mutexTcpSend);
+		printf("tcpWriteInit_4ch\n");
+		//sem_post(&semTcpSend);
+		sleep(10);
+	}
+#endif
+
+#if 0
+
+	//tTcpConnectServerInfoTypedef *pInfo = (tTcpConnectServerInfoTypedef *)tTcpInfo;
+
+	tTcpConnectServerInfoTypedef *pInfo = &tTcpConnectServerInfo;
 
 	while (1)
 	{
@@ -968,11 +1460,28 @@ void *tcpWriteInit_4ch(void *tTcpInfo)
 		}
 
 	}
+
+#endif // 0
+}
+
+//
+void thrSCBInit(void)
+{
+	memset(&thrSCB, 0, sizeof(thrSCB));
+	thrSCB[0].pfun = tcpClient_w;
+	thrSCB[1].pfun = tcpClient_r;
+	thrSCB[2].pfun = tcpWriteInit_4ch;
+
+	thrSCB[3].pfun = subClient_4ch;
+	thrSCB[4].pfun = pubClient;
+	thrSCB[5].pfun = mqttPubInit_4ch;
+
 }
 
 int main(int argc, char* argv[])
 {
 	pthread_t threads[NUM_THREADS];
+	int pthread_kill_err;
 	
 	//读取参数判断
 	if (argc < 4)
@@ -1168,14 +1677,65 @@ int main(int argc, char* argv[])
 #endif
 
 	//应用线程创建
+#if 0
+	thrSCBInit();
+
+	//批量创建线程，此处不用pthread_join是因为不希望创建子线程后阻塞主线程
+	for (int i = 0; i < NUM_THREADS; i++)
+	{
+		pthread_create(&thrSCB[i].tid, NULL, thrSCB[i].pfun, NULL);
+		pthread_detach(thrSCB[i].tid);
+	}
+
+
+
+	//线程监视函数
+	while (1)
+	{
+		//注：必须先获得所有线程的pthread_kill返回码，用于后续判断线程是否存活
+		//如果单独获得返回码，然后单独进行线程重启，会有几率造成重启的线程tid与其他已结束的线程重复
+		//导致本来结束的线程，调用pthread_kill返回存活，导致无法重启
+		for (int i = 0; i < NUM_THREADS; i++)
+		{
+			thrSCB[i].watch_err = pthread_kill(thrSCB[i].tid, 0);
+		}
+
+		for (int i = 0; i < NUM_THREADS; i++)
+		{
+			//如果线程不存在，则重启
+			if (thrSCB[i].watch_err == ESRCH)
+			{
+				printf("watch :thread %d is quit,restart it\n", i);
+				pthread_create(&thrSCB[i].tid, NULL, thrSCB[i].pfun, NULL);
+				pthread_detach(thrSCB[i].tid);
+			}
+			//如果发送信号非法
+			else if (pthread_kill_err == EINVAL)
+			{
+				printf("watch :thread %d send signal vailed\n", i);
+			}
+			//否则为线程在运行
+			else
+			{
+				printf("watch :thread %d is alive\n", i);
+			}
+		}
+		printf("\n");
+		//每隔30秒监视一次
+		sleep(30);
+	}
+#endif // 0
+
+#if 1
+
 
 	//tcp接收
-	pthread_create(&threads[0], NULL, tcpClient_r, (void *)&tTcpConnectServerInfo);
-	
+	pthread_create(&threads[0], NULL, tcpClient_r, NULL);
+
 	//tcp发送
-	pthread_create(&threads[1], NULL, tcpClient_w, (void *)&tTcpConnectServerInfo);
+	pthread_create(&threads[1], NULL, tcpClient_w, NULL);
 	//检测 发送4路控制器
-	pthread_create(&threads[2], NULL, tcpWriteInit_4ch, (void *)&tTcpConnectServerInfo);
+	pthread_create(&threads[2], NULL, tcpWriteInit_4ch, NULL);
 
 	////检测 写led控制器
 	//pthread_create(&threads[3], NULL, tcpWriteInit_4ch, (void *)&tTcpConnectServerInfo);
@@ -1186,23 +1746,39 @@ int main(int argc, char* argv[])
 
 
 	//mqtt 订阅控制-4路控制器
-	pthread_create(&threads[3], NULL, subClient_4ch, (void *)&tMqttConnectServerInfo);
-
+	//pthread_create(&threads[3], NULL, subClient_4ch, NULL);
+	pthread_create(&threads[3], NULL, subTest, NULL);
 
 	//mqtt 发布
-	pthread_create(&threads[4], NULL, pubClient, (void *)&tMqttConnectServerInfo);
+	pthread_create(&threads[4], NULL, pubClient, NULL);
+	//pthread_create(&threads[4], NULL, pubTest, NULL);
 	//监测mqtt-4路控制器发布 
-	pthread_create(&threads[5], NULL, mqttPubInit_4ch, (void *)&tMqttConnectServerInfo);
+	pthread_create(&threads[5], NULL, mqttPubInit_4ch, NULL);
 
 
 	//线程销毁
 	//用来等待一个线程的结束 方法一（一般用在主线程中）
 	pthread_join(threads[0], NULL);
+	//sleep(1);
 	pthread_join(threads[1], NULL);
+	//sleep(1);
 	pthread_join(threads[2], NULL);
 	pthread_join(threads[3], NULL);
 	pthread_join(threads[4], NULL);
 	pthread_join(threads[5], NULL);
+#endif // 0
+
+#if 0
+	int i = 0;
+	while (1)
+	{
+		i++;
+		printf("send=%d\n", i);
+		usleep(100);
+	}
+
+#endif // 1
+
 
 
 	//用来等待一个线程的结束，方法二（一般用在线程内）

@@ -5,7 +5,7 @@
 
 // #include "tcp_mqtt_thread.h"
 
-#define DEV_CONFIG_CSV_FILE_NAME 		"./devconfig.CSV"
+//#define DEV_CONFIG_CSV_FILE_NAME 		"./devconfig.CSV"
 
 #define DEV_TYPE_NAME_4CH_CTRL			"4channelCtrl"
 #define DEV_TYPE_NAME_LED_CTRL			"3ledCtrl"

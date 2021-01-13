@@ -1,6 +1,18 @@
 #ifndef TCP_MQTT_THREAD_H
 #define TCP_MQTT_THREAD_H
 
+#include <pthread.h>	//线程
+#include <stdio.h>		//标准输入输出
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>		//sleep延时函数
+#include <semaphore.h>	//信号量
+#include "MQTTClient.h"
+#if !defined(WIN32)
+#include <unistd.h>
+#else
+#include <windows.h>
+#endif
 
 #include "readConfigCsv.h"
 
@@ -11,7 +23,7 @@
 
 //macro definition 
 
-#define NUM_THREADS	    				10
+#define NUM_THREADS	    				6
 #define TCP_RECIVE_BUF_LEN				1024
 #define TCP_WRITE_BUF_LEN				1024
 #define MQTT_PUB_BUF_LEN				128
@@ -169,8 +181,16 @@ typedef struct
 */
 
 
+//线程入口函数指针
+typedef void *(*funThread)(void *arg);
 
-
+//线程控制块
+//将每个线程抽象成由线程号、线程入口函数、监视错误码组成的结构体
+typedef struct {
+	pthread_t		tid;        //线程号
+	funThread		pfun;       //入口函数
+	int				watch_err;  //监视错误码
+}threadsCBT;
 
 
 

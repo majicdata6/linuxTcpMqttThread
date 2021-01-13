@@ -4,7 +4,7 @@
 #define DEBUG_EN
 
 //获取设备ID 成功返回1 失败返回0
-uint8_t getDevId(uint8_t *pTcpData, uint8_t tcpDataLen, uint8_t *pStorDevId)
+uint8_t getDevId(uint8_t *pTcpData, int tcpDataLen, uint8_t *pStorDevId)
 {
 	uint8_t *pDevIdAddr = pTcpData;
 

@@ -43,7 +43,7 @@
 //pTcpData	解析数据起始地址
 //dataLen	解析数据的长度
 //返回解析处理的设备类型，返回0失败
-uint8_t decodeTcpData(uint8_t *pTcpData, uint8_t dataLen)
+uint8_t decodeTcpData(uint8_t *pTcpData, int dataLen)
 {
 	uint8_t dealType = 0;
 	uint8_t dealCmd = 0;

@@ -78,7 +78,7 @@ typedef struct tDevData
 
 //外部函数使用声明
 //获取设备ID 成功返回1 失败返回0
-uint8_t getDevId(uint8_t *pTcpData, uint8_t tcpDataLen, uint8_t *pStorDevId);
+uint8_t getDevId(uint8_t *pTcpData, int tcpDataLen, uint8_t *pStorDevId);
 
 //获取设备类型 正常返回 !0 异常返回0
 uint8_t getDevType(uint8_t *pTcpData);
